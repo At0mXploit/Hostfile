@@ -1,0 +1,132 @@
+#!/bin/bash
+
+# Default to Linux hosts file
+HOSTS_FILE="/etc/hosts"
+
+show_help() {
+    echo "Usage:"
+    echo "  hostfile [--linux|--windows] <IP> <DOMAIN> [SHORTNAME]"
+    echo "    Adds or updates an entry in the hosts file."
+    echo
+    echo "  hostfile [--linux|--windows] -R <DOMAIN or SHORTNAME>"
+    echo "    Removes any entry containing the specified domain or hostname."
+    echo
+    echo "  hostfile --setup"
+    echo "    Installs this script to /usr/bin/hostfile with proper permissions (requires sudo)."
+    echo
+    echo "  hostfile -h | --help"
+    echo "    Show this help message."
+    echo
+    echo "Examples:"
+    echo "  # Add AD box entry on Linux (with shortname):"
+    echo "  ./hostfile.sh --linux 10.10.10.5 dc.htb.local dc"
+    echo
+    echo "  # Add normal Linux box entry (no shortname):"
+    echo "  ./hostfile.sh --linux 10.10.10.10 hack.htb"
+    echo
+    echo "  # Add Windows hosts entry (via WSL):"
+    echo "  ./hostfile.sh --windows 10.10.10.10 hack.htb"
+    echo
+    echo "  # Remove entry by domain or shortname:"
+    echo "  ./hostfile.sh --linux -R hack.htb"
+    echo "  ./hostfile.sh --linux -R dc"
+    echo
+    echo "  # Setup the script (move to /usr/bin and set permissions):"
+    echo "  sudo ./hostfile.sh --setup"
+    exit 0
+}
+
+# Setup/install script
+if [[ "$1" == "--setup" ]]; then
+    # Must run as root
+    if [[ "$(id -u)" -ne 0 ]]; then
+        echo "Error: --setup must be run as root (sudo)."
+        exit 1
+    fi
+
+    SCRIPT_PATH="$(realpath "$0")"
+    DEST="/usr/bin/hostfile"
+
+    echo "Installing hostfile script to $DEST..."
+    cp "$SCRIPT_PATH" "$DEST" || { echo "Failed to copy script."; exit 1; }
+
+    chmod +x "$DEST"
+    chmod u+s "$DEST"
+
+    echo "Installed and permissions set:"
+    ls -l "$DEST"
+
+    exit 0
+fi
+
+# No args
+if [[ "$#" -lt 1 ]]; then
+    show_help
+fi
+
+# Handle OS flag
+if [[ "$1" == "--linux" ]]; then
+    HOSTS_FILE="/etc/hosts"
+    shift
+elif [[ "$1" == "--windows" ]]; then
+    HOSTS_FILE="/mnt/c/Windows/System32/drivers/etc/hosts"
+    shift
+fi
+
+# Help option
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    show_help
+fi
+
+# Remove entry
+if [[ "$1" == "-R" ]]; then
+    ENTRY="$2"
+    if [[ -z "$ENTRY" ]]; then
+        echo "Error: specify a domain or hostname to remove."
+        exit 1
+    fi
+    sudo sed -i "/\b$ENTRY\b/d" "$HOSTS_FILE"
+    echo "Removed lines containing '$ENTRY' from $HOSTS_FILE"
+    exit 0
+fi
+
+# Add entry
+IP="$1"
+DOMAIN="$2"
+SHORTNAME="$3"  # Optional
+
+if [[ -z "$IP" || -z "$DOMAIN" ]]; then
+    echo "Error: Must provide at least IP and DOMAIN."
+    show_help
+fi
+
+# Extract FQDN (e.g., dc.htb.local)
+FQDN="$DOMAIN"
+
+# Only use shortname if explicitly provided
+if [[ -z "$SHORTNAME" ]]; then
+    SHORTNAME=""
+fi
+
+# Remove old entries
+if [[ -z "$SHORTNAME" ]]; then
+    # Remove entries matching only the FQDN
+    sudo sed -i "/\b$FQDN\b/d" "$HOSTS_FILE"
+else
+    # Remove entries matching FQDN or SHORTNAME
+    for ENTRY in "$FQDN" "$SHORTNAME"; do
+        sudo sed -i "/\b$ENTRY\b/d" "$HOSTS_FILE"
+    done
+fi
+
+# Add new line
+if [[ -z "$SHORTNAME" ]]; then
+    echo "$IP $FQDN" | sudo tee -a "$HOSTS_FILE" > /dev/null
+    echo "Added to $HOSTS_FILE:"
+    echo "   $IP $FQDN"
+else
+    echo "$IP $FQDN $SHORTNAME" | sudo tee -a "$HOSTS_FILE" > /dev/null
+    echo "Added to $HOSTS_FILE:"
+    echo "   $IP $FQDN $SHORTNAME"
+fi
+
