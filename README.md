@@ -19,18 +19,19 @@ Usage:
 
 Examples:
   # Add AD box entry on Linux (with shortname):
-  ./hostfile.sh --linux 10.10.10.5 dc.htb.local dc
+  ./hostfile --linux 10.10.10.5 dc.htb.local dc
 
   # Add normal Linux box entry (no shortname):
-  ./hostfile.sh --linux 10.10.10.10 hack.htb
+  ./hostfile --linux 10.10.10.10 hack.htb
 
   # Add Windows hosts entry (via WSL):
-  ./hostfile.sh --windows 10.10.10.10 hack.htb
+  ./hostfile --windows 10.10.10.10 hack.htb
 
   # Remove entry by domain or shortname:
-  ./hostfile.sh --linux -R hack.htb
-  ./hostfile.sh --linux -R dc
+  ./hostfile --linux -R hack.htb
+  ./hostfile --linux -R dc
 
   # Setup the script (move to /usr/bin and set permissions):
-  sudo ./hostfile.sh --setup
+  sudo chmod +x hostfile
+  sudo ./hostfile --setup
 ```
